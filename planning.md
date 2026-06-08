@@ -14,55 +14,56 @@ You must have at least 3 tools. The three required tools are listed — add any 
 
 ### Tool 1: search_listings
 
-**What it does:**
-<!-- Describe what this tool does in 1–2 sentences -->
+**What it does:** 
+This tool searches through listings in data/listings.json. It first matches on size and caps price of the listings at max_price, and then semantically matches on description. It returns the top 3 listings, sorted by relevance.
 
 **Input parameters:**
 <!-- List each parameter, its type, and what it represents -->
-- `description` (str): ...
-- `size` (str): ...
-- `max_price` (float): ...
+- `description` (str): Description of item to be searched for, qualitatively
+- `size` (str): The size of the item, must match exactly
+- `max_price` (float): The maximum price of the item - the returned item must have price <= max price
 
 **What it returns:**
-<!-- Describe the return value — what fields does a result contain? -->
+The tool returns a list of the top 3 listings with all attributes, sorted in order of decreasing relevance.
 
 **What happens if it fails or returns nothing:**
-<!-- What should the agent do if no listings match? -->
+If the tool fails or returns nothing, the agent should stop and help the user debug.
 
 ---
 
 ### Tool 2: suggest_outfit
 
 **What it does:**
-<!-- Describe what this tool does in 1–2 sentences -->
+ Given a specific item and the user's current wardrobe, suggests one or more complete outfit combinations.
 
 **Input parameters:**
 <!-- List each parameter, its type, and what it represents -->
-- `new_item` (dict): ...
-- `wardrobe` (dict): ...
+- `new_item` (dict): A dict containing id, name, category, style_tags, colors of the new item to be considered.
+- `wardrobe` (dict): A dict containing a key 'item', which references a list of various clothes, defined as in the schema of listings.json.
 
 **What it returns:**
-<!-- Describe the return value -->
+It returns one or more complete outfit combinations.
 
 **What happens if it fails or returns nothing:**
-<!-- What should the agent do if the wardrobe is empty or no outfit can be suggested? -->
+If the wardrobe is empty/minimal or nothing can be suggested, it reports that to the user and stops.
 
 ---
 
 ### Tool 3: create_fit_card
 
 **What it does:**
-<!-- Describe what this tool does in 1–2 sentences -->
+Generates a short, shareable description of a complete outfit — the kind of thing someone would caption an Instagram post with. Must produce something different each time for different inputs.
 
 **Input parameters:**
 <!-- List each parameter, its type, and what it represents -->
-- `outfit` (...): ...
+- `outfit` (dict): A dict containing a key 'item', which references a list of various clothes, defined as in the schema of listings.json.
+- `new_item` (dict): A dict containing id, name, category, style_tags, colors of the new item to be considered.
 
 **What it returns:**
-<!-- Describe the return value -->
+A short description of the complete outfit, like a caption for an instagram post.
 
 **What happens if it fails or returns nothing:**
-<!-- What should the agent do if the outfit data is incomplete? -->
+Return nothing.
 
 ---
 
@@ -76,6 +77,11 @@ You must have at least 3 tools. The three required tools are listed — add any 
 
 **How does your agent decide which tool to call next?**
 <!-- Describe the logic your planning loop uses. What does it look at? What conditions change its behavior? How does it know when it's done? -->
+After search_listings runs, check if the results are empty. If yest, set an error messsage and return early. If not, set selected_item to either
+the item in the query or the first item and proceed to suggest_outfit.
+
+After suggest_outfit runs, check if an error occured. If yes, set an error message and return early. If not, proceed to create_fit_card with the 
+suggested outfit and the selected_item from above.
 
 ---
 
@@ -109,6 +115,30 @@ For each tool, describe the specific failure mode you're handling and what the a
      sketch are all fine. You'll share this diagram with an AI tool when asking it to implement
      the planning loop and each individual tool. -->
 
+User query
+    │
+    ▼
+Planning Loop ───────────────────────────────────────────┐
+    │                                                    │
+    ├─► search_listings(description, size, max_price)    │
+    │       │ results=[]                                 │
+    │       ├──► [ERROR] "No listings found..." → return │
+    │       │                                            │
+    │       │ results=[item, ...]                        │
+    │       ▼                                            │
+    │   Session: selected_item = \                       |
+    combine_first(user_query, results[0]                 │
+    │       │                                            │
+    ├─► suggest_outfit(selected_item, wardrobe)          │
+    │       │                                            │
+    │   Session: outfit_suggestion = "..."               │
+    │       │                                            │
+    └─► create_fit_card(outfit_suggestion, selected_item)│
+            │                                            │
+        Session: fit_card = "..."                        │
+            │                                            └─ error path returns here
+            ▼
+        Return session
 ---
 
 ## AI Tool Plan
@@ -125,8 +155,10 @@ For each tool, describe the specific failure mode you're handling and what the a
      before trusting it" is a plan. -->
 
 **Milestone 3 — Individual tool implementations:**
+I'll use Claude and give it my specs above for the tools. I will give it access to the data/ folder so it can see the schema. I will then test each tool as a unit test.
 
 **Milestone 4 — Planning loop and state management:**
+I'll use Claude and give it the planning loop and the architecture diagram above.
 
 ---
 
@@ -137,13 +169,13 @@ Write out what a full user interaction looks like from start to finish — tool 
 **Example user query:** "I'm looking for a vintage graphic tee under $30. I mostly wear baggy jeans and chunky sneakers. What's out there and how would I style it?"
 
 **Step 1:**
-<!-- What does the agent do first? Which tool is called? With what input? -->
+*Search* call tool search_listings("vintage graphic tee", size="M", max_price=30.0), which returns 3 matching listings sorted by relevance. FitFindr picks the top result: "Faded Band Tee — $22, Depop, Good condition." If this returns nothing, FitFindr tells the user to try something else and stops.
 
 **Step 2:**
-<!-- What happens next? What was returned from step 1? What tool is called now? -->
+*Suggest Outfit* call tool suggest_outfit(new_item=<band tee>, wardrobe=<user's wardrobe>), which returns: "Pair this with your wide-leg jeans and platform Docs for a classic 90s grunge look. Roll the sleeves once and tuck the front corner slightly for shape."
 
 **Step 3:**
-<!-- Continue until the full interaction is complete -->
+*Create Fit Card* call tool create_fit_card(outfit=<suggestion>, new_item=<band tee>), which returns: "thrifted this faded band tee off depop for $22 and honestly it was made for my wide-legs 🖤 full look in my stories"
 
 **Final output to user:**
-<!-- What does the user actually see at the end? -->
+"thrifted this faded band tee off depop for $22 and honestly it was made for my wide-legs 🖤 full look in my stories"
