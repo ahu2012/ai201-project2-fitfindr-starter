@@ -89,6 +89,7 @@ suggested outfit and the selected_item from above.
 
 **How does information from one tool get passed to the next?**
 <!-- Describe how your agent stores and accesses state within a session. What data is tracked? How is it passed between tool calls? -->
+The agent stores the query, what's been parsed, search results, the selected item, wardrobe, outfit suggestions, fit card, and an error field. It is passed as a dict between tool calls.
 
 ---
 
@@ -127,7 +128,7 @@ Planning Loop ──────────────────────
     │       │ results=[item, ...]                        │
     │       ▼                                            │
     │   Session: selected_item = \                       |
-    combine_first(user_query, results[0]                 │
+    combine_first(user_query, results[0])                 │
     │       │                                            │
     ├─► suggest_outfit(selected_item, wardrobe)          │
     │       │                                            │
