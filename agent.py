@@ -207,7 +207,7 @@ if __name__ == "__main__":
 
     print("=== Happy path: graphic tee ===\n")
     session = run_agent(
-        query="looking for a vintage graphic tee under $30",
+        query="XXS designer ballgown for less than $5",
         wardrobe=get_example_wardrobe(),
     )
     if session["error"]:
